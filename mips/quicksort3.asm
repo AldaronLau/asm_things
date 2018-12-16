@@ -8,7 +8,7 @@
 ##################################### DATA #####################################
 ################################################################################
 
-list_a: .word 1, 4, 3, 2, 1, 1, 3, 2, 4, 5
+list_a: .word 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
 list_b: .word 1, 2, 3, 4, 5, 6, 7, 8, 9, 0
 list_c: .word 5, 4, 6, 3, 7, 2, 8, 1, 0, 9
 list_d: .word 9, 1, 7, 7, 6, 5, 4, 4, 2, 0
@@ -75,8 +75,9 @@ main:
 
 	# Call function on multiple input and print results.
 	la $a0, list_a # First list as parameter.
-	addi $a1, $zero, 9
-	jal sort # sort(list_a, 10);
+	addi $a1, $zero, 0
+	addi $a2, $zero, 8
+	jal quicksort # sort(list_a, 10);
 
 #	# Exit.
 #	addi $v0, $zero, 10
@@ -155,7 +156,7 @@ main:
 # print(text, array, len)
 print_array:
 	# Put values on the stack.
-	addi $sp, $sp, -24 # (1 registers * -4).
+	addi $sp, $sp, -24 # (6 registers * -4).
 	sw $ra, 0 ($sp) # Return Address (ra).
 	sw $s0, 4 ($sp) # s0
 	sw $s1, 8 ($sp) # s1
@@ -216,52 +217,33 @@ print_array:
 	# Return from this function
 	jr $ra
 
-# void sort(int[] array, int len)
-sort:
-	# Put values on the stack.
-	addi $sp, $sp, -4 # (1 registers * -4).
-	sw $ra, 0 ($sp) # Return Address (ra).
-
-	# Call quicksort
-	addi $a2, $a1, -1
-	move $a1, $zero
-	move $a0, $a0
-	jal quicksort
-
-	# Pop values from the stack.
-	lw $ra, 0 ($sp)
-	addi $sp, $sp, 4 # Move back up registers
-
-	# Return from this function
-	jr $ra
-
 # void quicksort(int[] array, int p, int r)
 quicksort:
 	# Put values on the stack.
 	addi $sp, $sp, -20 # (5 registers * -4).
 	sw $ra, 0 ($sp) # Return Address (ra).
-	sw $s0, 4 ($sp) # int[] array
-	sw $s1, 8 ($sp) # int p
-	sw $s2, 12 ($sp) # int r
-	sw $s3, 16 ($sp) # int q-ish
+	sw $s0, 4 ($sp) # array
+	sw $s1, 8 ($sp) # p
+	sw $s2, 12 ($sp) # r
+	sw $s3, 16 ($sp)
 
-	# Load arguments into s registers.
-	move $s0, $a0 # int[] array
-	move $s1, $a1 # int p
-	move $s2, $a2 # int r
+	# Get array p and r into sRegisters.
+	move $s0, $a0 # array
+	move $s1, $a1 # p
+	move $s2, $a2 # r
 
-	# if p < r {
-	slt $t0, $s1, $s2
-	beq $t0, $zero, quicksort_return
+	# If p < r
+	slt $s3, $s1, $s2             # s3 = p < r
+	beq $s3, $zero, quicksort_end # if s3 == false { return; }
 
-	# int q = partition( array, p, r);
+	# int q = partition(array, p, r);
 	move $a0, $s0
 	move $a1, $s1
 	move $a2, $s2
 	jal partition
 	move $s3, $v0
 
-	# quicksort( array, p, q - 1);
+	# quicksort(array, p, q - 1);
 	move $a0, $s0
 	move $a1, $s1
 	addi $a2, $s3, -1
@@ -273,7 +255,8 @@ quicksort:
 	move $a2, $s2
 	jal quicksort
 
-	quicksort_return:
+	quicksort_end:
+
 	# Pop values from the stack.
 	lw $ra, 0 ($sp)
 	lw $s0, 4 ($sp)
@@ -281,79 +264,6 @@ quicksort:
 	lw $s2, 12 ($sp)
 	lw $s3, 16 ($sp)
 	addi $sp, $sp, 20 # Move back up registers
-
-	# Return from this function
-	jr $ra
-
-## Partition the array.
-# int partition(int[] array, int p, int r)
-partition:
-	# Put values on the stack.
-	addi $sp, $sp, -28 # (2 registers * -4).
-	sw $ra, 0 ($sp) # Return Address (ra).
-	sw $s0, 4 ($sp) # int[] array
-	sw $s1, 8 ($sp) # int p
-	sw $s2, 12 ($sp) # int r
-	sw $s3, 16 ($sp) # int i
-	sw $s4, 20 ($sp) # int pivot
-	sw $s5, 24 ($sp) # value from array[p].
-
-	# Load arguments into s registers.
-	move $s0, $a0 # int[] array
-	move $s1, $a1 # int p
-	move $s2, $a2 # int r
-
-	# Set initial values
-	sll $s4, $s2, 2 # int pivot(s4) = r * 4;
-	add $s4, $s0, $s4 # pivot(s4) += array;
-	addi $s3, $s1, -1 # int i = p - 1;
-
-	# for(p < r; p++)
-	partition_for_loop:
-		# Get value from array[p].
-		sll $s5, $s1, 2 # s5 = p * 4;
-		add $s5, $s5, $s0 # s5 += array;
-		lw $s5, 0 ($s5) # s5 = *s5;
-
-		# if array[p] < pivot {
-		slt $t0, $s4, $s5
-		bne $t0, $zero, partition_continue
-
-		# { i += 1; swap(array, i, p) }
-		addi $s3, $s3, 1
-		move $a0, $s0
-		move $a1, $s3
-		move $a2, $s1
-		jal swap
-
-		partition_continue:
-		# p++
-		addi $s1, $s1, 1
-		# if p < r == false { break }
-		slt $t0, $s1, $s2 # t0 = p < r
-		bne $t0, $zero, partition_for_loop # 
-
-	# i += 1;
-	add $s3, $s3, 1
-
-	# swap( array, i, r);
-	move $a0, $s0
-	move $a1, $s3
-	move $a2, $s2
-	jal swap
-
-	# Set return value
-	move $v0, $s3
-
-	# Pop values from the stack.
-	lw $ra, 0 ($sp)
-	lw $s0, 4 ($sp)
-	lw $s1, 8 ($sp)
-	lw $s2, 12 ($sp)
-	lw $s3, 16 ($sp)
-	lw $s4, 20 ($sp)
-	lw $s5, 24 ($sp)
-	addi $sp, $sp, 28 # Move back up registers
 
 	# Return from this function
 	jr $ra
@@ -393,3 +303,84 @@ swap:
 	# Return from this function
 	jr $ra
 
+## Partition the array.
+# int partition(int[] array, int p, int r)
+partition:
+	# Put values on the stack.
+	addi $sp, $sp, -32 # (8 registers * -4).
+	sw $ra, 0 ($sp) # Return Address (ra).
+	sw $s0, 4 ($sp) # array
+	sw $s1, 8 ($sp) # p
+	sw $s2, 12 ($sp) # r
+	sw $s3, 16 ($sp) # pivot
+	sw $s4, 20 ($sp) # i
+	sw $s5, 24 ($sp) # j
+	sw $s6, 28 ($sp) # array_j
+
+    # Put arguments into s registers.
+    move $s0, $a0
+    move $s1, $a1
+    move $s2, $a2
+
+    #  int pivot = array[ r];
+    sll $s2, $s2, 2
+    add $s3, $s2, $s0
+    la $s3, 0 ($s3)
+
+    #  int i = p -1;
+    addi $s4, $s1, -1
+
+    #  for( int j = p, j < r; j++) {
+    move $s5, $s1
+    partition_loop:
+        slt $t0, $s5, $s2
+        beq $t0, $zero, partition_done
+
+    #    if( array[ j] <= pivot) {
+        sll $t0, $s5, 2
+        add $t0, $t0, $s0
+        la $t0, 0 ($t0)
+        slt $t0, $t0, $s3
+        beq $t0, $zero, partition_continue
+
+    #      i = i + 1;
+        addi $s4, $s4, 1
+
+    #      swap( array, i, j);
+        move $a0, $s0
+        move $a1, $s4
+        move $a2, $s5
+        jal swap
+
+    #    }
+
+        partition_continue:
+
+        addi $s5, $s5, 1
+        j partition_loop
+
+    partition_done:
+    #  }
+
+    #  swap( array, i + 1, r);
+    move $a0, $s0
+    addi $a1, $s4, 1
+    move $a2, $s2
+    jal swap
+
+    #  return( i + 1);
+    addi $v0, $s4, 1
+
+	# Pop values from the stack.
+	lw $ra, 0 ($sp)
+	lw $s0, 4 ($sp)
+	lw $s1, 8 ($sp)
+	lw $s2, 12 ($sp)
+	lw $s3, 16 ($sp)
+	lw $s4, 20 ($sp)
+	lw $s5, 24 ($sp)
+	lw $s6, 28 ($sp)
+	addi $sp, $sp, 32 # Move back up registers
+
+	# Return from this function
+	jr $ra
