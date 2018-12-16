@@ -130,11 +130,57 @@ main:
 
 quicksort:
 	# Add a words to the stack.
+	addi $sp, $sp, -20
+	sw $ra, 0 ($sp)
+	sw $s0, 4 ($sp) # Array
+	sw $s1, 8 ($sp) # Length
+	sw $s2, 12 ($sp) # Intermediate value
+	sw $s3, 16 ($sp) # Pivot Index
+
+	quicksort_tailcall_optimize:
+	
+	# Put arguments into s registers.
+	move $s0, $a0
+	move $s1, $a1
+
+	# Check for the base case: Size of array is 0 or 1.
+	srl $s2, $s1, 1
+	beq $s2, $zero, quicksort_return
+	
+	# Call partition, and put return value in $s3
+	move $a0, $s0
+	move $a1, $s1
+	jal partition
+	move $s3, $v0
+	
+	# quicksort(array, pivot index);
+	move $a0, $s0
+	move $a1, $s3
+	jal quicksort
+	
+	# quicksort(array + (pivot index * 4), length - pivot index]);
+	sll $s2, $s3, 2
+	add $a0, $s0, $s2
+	sub $a1, $s1, $s3
+	j quicksort_tailcall_optimize
+	
+	# Take words off the stack and return.
+	quicksort_return:
+	lw $ra, 0 ($sp)
+	lw $s0, 4 ($sp)
+	lw $s1, 8 ($sp)
+	lw $s2, 12 ($sp)
+	lw $s3, 16 ($sp)
+	addi $sp, $sp, 20
+	jr $ra
+
+partition:
+	# Add a words to the stack.
 	addi $sp, $sp, -28
 	sw $ra, 0 ($sp)
 	sw $s0, 4 ($sp) # Array
 	sw $s1, 8 ($sp) # Length
-	sw $s2, 12 ($sp) # If statement itermediate value
+	sw $s2, 12 ($sp) # If statement Intermediate value
 	sw $s3, 16 ($sp) # First
 	sw $s4, 20 ($sp) # Last
 	sw $s5, 24 ($sp) # Pivot
@@ -142,10 +188,6 @@ quicksort:
 	# Put arguments into s registers.
 	move $s0, $a0
 	move $s1, $a1
-	
-	# Check for the base case: Size of array is 0 or 1.
-	srl $s2, $s1, 1
-	beq $s2, $zero, quicksort_return
 	
 	# Set first=-1 and last=length
 	addi $s3, $zero, -1
@@ -194,21 +236,9 @@ quicksort:
 	gpi_end:
 	
 	# Calculate the new pivot index.
-	addi $s5, $s4, 1
-	
-	# quicksort(array, pivot index);
-	move $a0, $s0
-	move $a1, $s5
-	jal quicksort
-	
-	# quicksort(array + (pivot index * 4), length - pivot index]);
-	sll $s2, $s5, 2
-	add $a0, $s0, $s2
-	sub $a1, $s1, $s5
-	jal quicksort
+	addi $v0, $s4, 1
 	
 	# Take words off the stack and return.
-	quicksort_return:
 	lw $ra, 0 ($sp)
 	lw $s0, 4 ($sp)
 	lw $s1, 8 ($sp)

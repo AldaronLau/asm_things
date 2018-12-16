@@ -139,6 +139,8 @@ quicksort:
 	sw $s4, 20 ($sp) # Last
 	sw $s5, 24 ($sp) # Pivot
 	
+	quicksort_tailcall_optimize:
+
 	# Put arguments into s registers.
 	move $s0, $a0
 	move $s1, $a1
@@ -205,7 +207,7 @@ quicksort:
 	sll $s2, $s5, 2
 	add $a0, $s0, $s2
 	sub $a1, $s1, $s5
-	jal quicksort
+	j quicksort_tailcall_optimize
 	
 	# Take words off the stack and return.
 	quicksort_return:
